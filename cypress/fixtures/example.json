@@ -1,0 +1,10 @@
+ {
+  "firstName": "test123",
+  "lastName": "automation123",
+  "street": "123 Elm Street",
+  "city": "Springfield",
+  "region": "New York",
+  "postcode": "12345",
+  "country": "United States",
+  "telephone": "555-1234"
+ }
