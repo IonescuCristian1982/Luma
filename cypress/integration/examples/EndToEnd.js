@@ -11,14 +11,15 @@ describe('End to end test suites', function () {
   let productPage = new ProductPage()
   let checkoutPage = new CheckoutPage()
   let paymentPage = new PaymentPage()
+  let data;
 
   before(function () {
-    cy.fixture('example').then((data) => {
-      this.data = data;
+    cy.fixture('example').then((fixtureData) => {
+      data = fixtureData
     });
   });
 
-  before(() => {
+  beforeEach(function () {
     const url = Cypress.env("url")
     createAccountPage.visit(url + "/customer/account/create/")
   })
@@ -29,8 +30,8 @@ describe('End to end test suites', function () {
       const randomPassword = `${randomText}1234`
 
       createAccountPage.fillForm(
-        this.data.firstName,
-        this.data.lastName,
+        data.firstName,
+        data.lastName,
         randomEmail,
         randomPassword,
         randomPassword
@@ -40,7 +41,7 @@ describe('End to end test suites', function () {
 
       cy.url().should("include", "/customer/account/")
       cy.get('.message-success > div').should("contain", "Thank you for registering with Main Website Store.")
-      cy.get("div[class='panel header'] span[class='logged-in']").should("contain", `${this.data.firstName} ${this.data.lastName}`)
+      cy.get("div[class='panel header'] span[class='logged-in']").should("contain", `${data.firstName} ${data.lastName}`)
     });
 
     homePage.mouseOverManClothings().trigger('mouseover')
@@ -60,13 +61,12 @@ describe('End to end test suites', function () {
     productPage.clickOnCheckout().click()
 
     checkoutPage.fillShippingForm({
-      //street: '123 Elm Street',
-      street: this.data.street,
-      city: this.data.city,
-      region: this.data.region,
-      postcode: this.data.postcode,
-      country: this.data.country,
-      telephone: this.data.telephone
+      street: data.street,
+      city: data.city,
+      region: data.region,
+      postcode: data.postcode,
+      country: data.country,
+      telephone: data.telephone
     });
 
     checkoutPage.shippingMethods();
@@ -77,7 +77,121 @@ describe('End to end test suites', function () {
     cy.url().should("include", "checkout/onepage/success/")
     cy.get(".base").should("have.text", "Thank you for your purchase!")
   });
-})
+});
 
+describe('Create Account Page - Error Handling', function () {
+  let createAccountPage = new CreateAccountPage()
+  let data;
+  before(function () {
+    cy.fixture('example').then((fixtureData) => {
+      data = fixtureData;
+    });
+  });
 
+  beforeEach(function () {
+    const url = Cypress.env("url");
+    createAccountPage.visit(url + "/customer/account/create/")
+  });
 
+  it('should display errors for empty fields', function () {
+    createAccountPage.submit();
+
+    cy.get("#firstname-error").should('contain', 'This is a required field.')
+    cy.get("#lastname-error").should('contain', 'This is a required field.')
+    cy.get("#email_address-error").should('contain', 'This is a required field.')
+    cy.get("#password-strength-meter-label").should('contain', 'No Password')
+    cy.get("#password-error").should('contain', 'This is a required field.')
+    cy.get("#password-confirmation-error").should('contain', 'This is a required field.')
+  });
+
+  it('should display error for invalid email format', function () {
+    createAccountPage.fillForm(
+      data.firstName,
+      data.lastName,
+      'invalid-email-format',
+      'validPassword123',
+      'validPassword123'
+    );
+    createAccountPage.submit()
+
+    cy.get('#email_address-error').should('include.text', 'Please enter a valid email address')
+
+  });
+
+  it('should display error for mismatched password confirmation', function () {
+    createAccountPage.fillForm(
+      data.firstName,
+      data.lastName,
+      'test@example.com',
+      'password123',
+      'differentPassword123'
+    );
+    createAccountPage.submit()
+
+    cy.get("#password-confirmation-error").should('contain', 'Please enter the same value again.')
+  });
+
+  it('should display error for password length', function () {
+    createAccountPage.fillForm(
+      data.firstName,
+      data.lastName,
+      'test@example.com',
+      'short',
+      'short'
+    );
+    createAccountPage.submit()
+
+    cy.get("#password-error").should('include.text', 'Minimum length of this field must be equal or greater than 8 symbols')
+  });
+
+  it('should display error for weak password', function () {
+    createAccountPage.fillForm(
+      data.firstName,
+      data.lastName,
+      'test@example.com',
+      '12345',
+      '12345'
+    );
+    createAccountPage.submit()
+
+    cy.get('#password-strength-meter-label').should('include.text', 'Weak')
+  });
+});
+
+describe('Search Functionality Tests', function () {
+  let homePage = new HomePage();
+
+  beforeEach(function () {
+    const url = Cypress.env("url")
+    cy.visit(url);
+  });
+
+  it('should display search results for a valid product name', function () {
+    homePage.searchForProduct('Jacket')
+
+    cy.url().should('include', 'catalogsearch/result/?q=Jacket')
+    cy.get('.products-grid').should('be.visible');
+    cy.get('.product-item').should('have.length.greaterThan', 0)
+  });
+
+  it('should display no results for a product name that does not exist', function () {
+    homePage.searchForProduct('NonexistentProduct')
+
+    cy.url().should('include', 'catalogsearch/result/?q=NonexistentProduct');
+    cy.get(".message.notice").should('contain', 'Your search returned no results.')
+  });
+
+  it('should display search suggestions while typing', function () {
+    homePage.enterSearchText('Jacket');
+
+    cy.waitForElementToBeVisible("#search_autocomplete").should('be.visible')
+    cy.get("#search_autocomplete").should('have.length.greaterThan', 0)
+  });
+
+  it('should clear search input when the clear button is clicked', function () {
+    homePage.searchForProduct('Jacket')
+    homePage.clearSearch()
+
+    cy.get('#search').should('have.value', '')
+  });
+});
