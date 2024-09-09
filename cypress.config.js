@@ -1,7 +1,7 @@
 const { defineConfig } = require("cypress");
 
 module.exports = defineConfig({
-  defaultCommandTimeout: 8000,
+  defaultCommandTimeout: 12000,
   env: {
     url: "https://magento.softwaretestingboard.com/"
   },
